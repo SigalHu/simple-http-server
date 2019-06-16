@@ -55,7 +55,7 @@ def __change_workspace():
 
 
 def main():
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] [%(name)s] %(message)s")
     signal.signal(signal.SIGTERM, __signal_handler)
     signal.signal(signal.SIGINT, __signal_handler)
     __change_workspace()
