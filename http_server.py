@@ -3,12 +3,20 @@
 @author huxujun
 @date 2019-06-16
 """
-import SimpleHTTPServer
-import SocketServer
 import logging
 import os
 import signal
 import sys
+
+if sys.version_info.major == 2:
+    import SimpleHTTPServer
+    import SocketServer as socketserver
+
+    reload(sys)
+    sys.setdefaultencoding("utf-8")
+else:
+    import http.server as SimpleHTTPServer
+    import socketserver
 
 
 class HttpServer(object):
@@ -18,11 +26,9 @@ class HttpServer(object):
         logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] [%(name)s] %(message)s")
         self.__logger = logging.getLogger(self.__class__.__name__)
         self.__port = port
+
         self.__pid_file = self.__create_pid_file(os.getcwd())
-
-        signal.signal(signal.SIGTERM, HttpServer.__signal_handler)
-        signal.signal(signal.SIGINT, HttpServer.__signal_handler)
-
+        self.__register_signal()
         self.__change_workspace()
 
     def __del__(self):
@@ -30,8 +36,20 @@ class HttpServer(object):
             os.remove(self.__pid_file)
 
     @staticmethod
+    def __register_signal():
+        signal.signal(signal.SIGTERM, HttpServer.__signal_handler)
+        signal.signal(signal.SIGINT, HttpServer.__signal_handler)
+
+    @staticmethod
     def __signal_handler(signal_num, frame):
         raise SignalException("Received signal {}".format(signal_num))
+
+    def __create_pid_file(self, output):
+        pid_file = os.path.join(output, "pid.txt")
+        self.__logger.info("Create the %s", pid_file)
+        with open(pid_file, "w") as f:
+            f.write("{}\n".format(os.getpid()))
+        return pid_file
 
     def __change_workspace(self):
         for root, _, files in os.walk(os.getcwd()):
@@ -42,16 +60,9 @@ class HttpServer(object):
                     return
         raise Exception("Can not find index.html in %s" % os.path.dirname(__file__))
 
-    def __create_pid_file(self, output):
-        pid_file = os.path.join(output, "pid.txt")
-        self.__logger.info("Create the %s", pid_file)
-        with open(pid_file, "w") as f:
-            f.write("{}\n".format(os.getpid()))
-        return pid_file
-
     def start(self):
         handler = SimpleHTTPServer.SimpleHTTPRequestHandler
-        httpd = SocketServer.TCPServer(("", self.__port), handler)
+        httpd = socketserver.TCPServer(("", self.__port), handler)
         while True:
             try:
                 self.__logger.info("Start the http server, serving at port %d", self.__port)
